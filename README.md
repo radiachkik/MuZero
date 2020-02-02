@@ -1,2 +1,2 @@
 # MuZero
-A minimal implementation oft the recently unveiled MuZero algorithm
+A minimal implementation of the recently unveiled MuZero algorithm
