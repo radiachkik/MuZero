@@ -1,4 +1,4 @@
-from muzero.network import Network
+from src.muzero.network import Network
 
 """
 Storage for all saved versions of the network

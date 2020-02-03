@@ -1,9 +1,9 @@
 from gym import core
 from typing import List
 
-from environement.action import Action
-from environement.player import Player
-from mcts.node import Node
+from src.environement.action import Action
+from src.environement.player import Player
+from src.mcts.node import Node
 
 """
 A single episode of interaction with the environment.

@@ -1,4 +1,4 @@
-from environement.games import Game
+from src.environement.games import Game
 
 from typing import Optional
 from gym import core

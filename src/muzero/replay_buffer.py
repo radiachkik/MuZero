@@ -1,5 +1,5 @@
-from muzero.muzero_config import MuZeroConfig
-from environement.games import Game
+from src.muzero.muzero_config import MuZeroConfig
+from src.environement.games import Game
 
 import random
 
