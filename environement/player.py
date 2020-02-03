@@ -6,5 +6,5 @@ class Player(object):
     """
     The function evaluating if two players are equal  (for simple comparison)
     """
-    def __eq__(self, other:Player):
+    def __eq__(self, other: 'Player'):
         return self.id == other.id

@@ -1,8 +1,10 @@
-from network import Network
+from muzero.network import Network
 
 """
 Storage for all saved versions of the network
 """
+
+
 class NetworkStorage(object):
 
 	def __init__(self):
@@ -13,7 +15,7 @@ class NetworkStorage(object):
 			return self._networks[max(self._networks.keys())]
 		else:
 			# policy -> uniform, value -> 0, reward -> 0
-			return make_uniform_network()
+			return Network()
 
 	def save_network(self, step: int, network: Network):
 		self._networks[step] = network

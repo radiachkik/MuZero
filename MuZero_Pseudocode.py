@@ -609,6 +609,5 @@ def softmax_sample(distribution, temperature: float):
 def launch_job(f, *args):
   f(*args)
 
-
 def make_uniform_network():
   return Network()
