@@ -16,7 +16,7 @@ coverage:
         flags: 
           - unit
         paths: 
-          - "src"
+          - "."
        # advanced
         branches: 
           - master
