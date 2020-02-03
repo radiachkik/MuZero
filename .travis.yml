@@ -19,7 +19,7 @@ install:
     # Install dependencies
     - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION codecov
     - conda activate test-environment
-    - python setup.py install
+    #- python setup.py install // Add this to install all dependencies from setup.py
 script:
     - coverage run -m unittest discover
 after_success: 
