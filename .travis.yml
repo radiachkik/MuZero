@@ -21,6 +21,6 @@ install:
     - conda activate test-environment
     #- python setup.py install // Add this to install all dependencies from setup.py
 script:
-    - coverage run -m unittest discover
+    - coverage run -m unittest discover --source=.
 after_success: 
     - bash <(curl -s https://codecov.io/bash)
