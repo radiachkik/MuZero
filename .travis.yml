@@ -1,3 +1,4 @@
 language: python
-  script:
-    - pytest
+python:
+    - "3.6"
+script: python test/test_muzero.py
