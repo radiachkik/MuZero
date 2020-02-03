@@ -1,9 +1,9 @@
 from gym import core
 from typing import List
 
-from src.environement.action import Action
-from src.environement.player import Player
-from src.mcts.node import Node
+from muzero.environment.action import Action
+from muzero.environment.player import Player
+from muzero.mcts.node import Node
 
 """
 A single episode of interaction with the environment.

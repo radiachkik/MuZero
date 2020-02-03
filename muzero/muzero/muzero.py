@@ -1,9 +1,9 @@
-from src.muzero.muzero_config import MuZeroConfig, MuZeroBoardConfig, MuZeroAtariConfig
-from src.muzero.network_storage import NetworkStorage
-from src.muzero.replay_buffer import ReplayBuffer
-from src.muzero.network import Network
-from src.mcts.tree import Tree
-from src.environement.games import Game
+from muzero.muzero.muzero_config import MuZeroConfig, MuZeroBoardConfig, MuZeroAtariConfig
+from muzero.muzero.network_storage import NetworkStorage
+from muzero.muzero.replay_buffer import ReplayBuffer
+from muzero.muzero.network import Network
+from muzero.mcts.tree import Tree
+from muzero.environment.games import Game
 
 from tensorflow.keras.optimizers import Optimizer, SGD
 import tensorflow as tf

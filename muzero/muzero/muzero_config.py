@@ -1,4 +1,4 @@
-from src.environement.games import Game
+from muzero.environment.games import Game
 
 from typing import Optional
 from gym import core

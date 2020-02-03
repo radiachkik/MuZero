@@ -1,9 +1,9 @@
-from src.mcts.node import Node
-from src.muzero.network import Network
-from src.muzero.muzero_config import MuZeroConfig
-from src.environement.action import Action
-from src.environement.player import Player
-from src.mcts.min_max_stats import MinMaxStats
+from muzero.mcts.node import Node
+from muzero.muzero.network import Network
+from muzero.muzero.muzero_config import MuZeroConfig
+from muzero.environment.action import Action
+from muzero.environment.player import Player
+from muzero.mcts.min_max_stats import MinMaxStats
 
 import numpy as np
 from typing import List

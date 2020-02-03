@@ -1,7 +1,7 @@
-from src.muzero.network import Network
-from src.mcts.min_max_stats import MinMaxStats
-from src.environement.player import Player
-from src.environement.action import Action
+from muzero.muzero.network import Network
+from muzero.mcts.min_max_stats import MinMaxStats
+from muzero.environment.player import Player
+from muzero.environment.action import Action
 
 from typing import Optional, List
 import collections
