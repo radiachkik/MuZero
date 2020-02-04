@@ -3,6 +3,7 @@ python:
     - "3.6"
 install:
     - pip install gym
+    - pip install tensorflow==2.0.0beta1
 script:
     - python -m unittest discover
 after_success:
