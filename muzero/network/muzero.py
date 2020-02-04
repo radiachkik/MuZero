@@ -86,7 +86,7 @@ class MuZero(object):
     """
     First predict the values for the given observations and actions 
     Then calculate the loss between those predictions and results of the MCTS stored in the replay buffer 
-    Before optimizing the weights, add a L2-Regularization to the loss (adds a penalty if the weights get to big; prevents overfitting)
+    Before optimizing the weights, add a L2-Regularization to the loss (adds a penalty if the weights get to big)
     Finally updating all weights in the network (all 3 models) with the given optimizer.
     """
 
