@@ -68,7 +68,7 @@ class MuZeroConfig(object):
         self.lr_decay_steps = lr_decay_steps
 
     def new_game(self):
-        return Game(self.environment, self.action_space_size, self.number_players, self.discount)
+        return Game(self.environment, self.number_players, self.discount)
 
 
 class MuZeroBoardConfig(MuZeroConfig):

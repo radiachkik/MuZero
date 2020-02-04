@@ -12,16 +12,18 @@ A single episode of interaction with the environment.
 
 class Game(object):
 
-	def __init__(self, environment: core.Env, action_space_size: int, number_players: int, discount: float):
+	def __init__(self, environment: core.Env, number_players: int, discount: float):
 		self.environment = environment
-		self.action_space_size = action_space_size
+		self.action_space_size = environment.action_space.n
 		self.players = [Player(i) for i in range(number_players)]
 		self.step = 0
 		self.discount = discount
 
-		self.action_history = []
-		self.reward_history = []
+		self.action_history = [Action(0)]
+		self.reward_history = [0]
 		self.observation_history = []
+		self.environment = environment
+		self.observation_history.append(self.environment.reset())
 		self.opponent_reward = 0
 		self.player_reward = 0
 
@@ -29,9 +31,10 @@ class Game(object):
 		self.root_values = []
 		self.child_visits = []
 
-		self.environment = environment
-		self.observation_history.append(self.environment.reset())
 		self.done = False
+
+		if number_players not in [1, 2]:
+			raise Exception('Game init', 'Valid number_player-values are: 1 or 2')
 
 	"""
 	Return whether this game has ended or not
@@ -56,25 +59,10 @@ class Game(object):
 	"""
 
 	def apply(self, action: Action):
-		# Only one player
-		if len(self.players) == 1:
-			observation, reward, self.done, _ = self.environment.step(action)
-			self.observation_history.append(observation)
-			self.reward_history.append(reward)
-			self.action_history.append(action)
-		# Multiple players
-		elif len(self.players) == 2:
-			# Player
-			if self.to_play() == self.players[0]:
-				observation, self.player_reward, self.done, _ = self.environment.step(action)
-				self.action_history.append(action)
-			# Opponent
-			else:
-				observation, reward, self.done, _ = self.environment.step(action)
-				self.observation_history.append(observation)
-				self.reward_history.append(self.player_reward - reward)
-		else:
-			raise Exception('MuZero Games', 'Only games with two players are implemented')
+		observation, reward, self.done, _ = self.environment.step(action.action_id)
+		self.observation_history.append(observation)
+		self.reward_history.append(reward)
+		self.action_history.append(action)
 		self.step += 1
 
 	"""
@@ -91,7 +79,7 @@ class Game(object):
 	Get the observation of a specific step of the game 
 	"""
 
-	def make_image(self, state_index: int):
+	def make_image(self, state_index: int) -> List:
 		return self.observation_history[state_index]
 
 	"""
@@ -100,7 +88,7 @@ class Game(object):
 	The sum is the predicted reward from the very beginning untill n-steps in the future 
 	"""
 
-	def make_target(self, state_index: int, num_unroll_steps: int, td_steps: int):
+	def make_target(self, state_index: int, num_unroll_steps: int, td_steps: int) -> List:
 		target_values = []
 		# Add target value for each step from state_index till state_index + num_unroll_steps
 		for current_index in range(state_index, state_index + num_unroll_steps + 1):
