@@ -2,9 +2,10 @@ language: python
 python:
     - "3.6"
 install:
+    - pip install coverage
     - pip install gym
     - pip install tensorflow==2.0.0beta1
 script:
-    - python -m unittest discover
+    - coverage run -m unittest discover
 after_success:
     - bash <(curl -s https://codecov.io/bash)
