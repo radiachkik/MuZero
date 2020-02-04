@@ -1,4 +1,5 @@
 # TODO: Klasse muss angepasst werdem
+from muzero.network.network_output import NetworkOutput
 
 class Network(object):
 

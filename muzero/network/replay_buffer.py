@@ -1,4 +1,4 @@
-from muzero.muzero.muzero_config import MuZeroConfig
+from muzero.network.muzero_config import MuZeroConfig
 from muzero.environment.games import Game
 
 import random

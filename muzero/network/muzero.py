@@ -1,7 +1,7 @@
-from muzero.muzero.muzero_config import MuZeroConfig, MuZeroBoardConfig, MuZeroAtariConfig
-from muzero.muzero.network_storage import NetworkStorage
-from muzero.muzero.replay_buffer import ReplayBuffer
-from muzero.muzero.network import Network
+from muzero.network.muzero_config import MuZeroConfig, MuZeroBoardConfig, MuZeroAtariConfig
+from muzero.network.network_storage import NetworkStorage
+from muzero.network.replay_buffer import ReplayBuffer
+from muzero.network.network import Network
 from muzero.mcts.tree import Tree
 from muzero.environment.games import Game
 

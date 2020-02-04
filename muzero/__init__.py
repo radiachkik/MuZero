@@ -8,9 +8,9 @@ from .mcts import min_max_stats
 
 from .models import prediction_model
 
-from .muzero import muzero
-from .muzero import muzero_config
-from .muzero import network
-from .muzero import network_storage
-from .muzero import network_output
-from .muzero import replay_buffer
+from .network import muzero
+from .network import muzero_config
+from .network import network
+from .network import network_storage
+from .network import network_output
+from .network import replay_buffer

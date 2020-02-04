@@ -1,4 +1,4 @@
-from muzero.muzero.network import Network
+from muzero.network.network import Network
 from muzero.mcts.min_max_stats import MinMaxStats
 from muzero.environment.player import Player
 from muzero.environment.action import Action
