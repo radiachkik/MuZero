@@ -1,10 +1,9 @@
-# TODO: Klasse muss angepasst werdem
+from muzero.environment.action import Action
+from typing import Dict, List, NamedTuple
 
-import typing
-from action import Action
 
-class NetworkOutput(typing.NamedTuple):
-  value: float
-  reward: float
-  policy_logits: Dict[Action, float]
-  hidden_state: List[float]
+class NetworkOutput(NamedTuple):
+    value: float
+    reward: float
+    policy_logits: Dict[Action, float]
+    hidden_state: List[float]
