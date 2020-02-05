@@ -32,14 +32,31 @@ class TestGames(unittest.TestCase):
     def setUp(self):
         from muzero.environment.games import Game
         from muzero.environment.action import Action
+        from muzero.environment.player import Player
+        from muzero.mcts.node import Node
         import gym
         self.env = gym.make('CartPole-v0')
         self.game = Game(environment=self.env, discount=0.995, number_players=1)
         self.default_action = Action(0)
+        self.default_root_node = Node(value=1,
+                                      action=self.default_action,
+                                      hidden_state=0,
+                                      policy_logits=[0],
+                                      to_play=Player(0),
+                                      reward=0)
+        self.default_root_node.child_nodes.append(Node(value=1,
+                                                  action=self.default_action,
+                                                  hidden_state=0,
+                                                  policy_logits=[0],
+                                                  to_play=Player(0),
+                                                  reward=0)
+                                                  )
 
     def test_game_init_raises_exception_on_invalid_player_number(self):
         from muzero.environment.games import Game
         self.assertRaises(Exception, Game, environment=self.env, discount=0.995, number_players=0)
+        Game(environment=self.env, discount=0.995, number_players=1)
+        Game(environment=self.env, discount=0.995, number_players=2)
         self.assertRaises(Exception, Game, environment=self.env, discount=0.995, number_players=3)
 
     # Check that the list of valid actions contains Action objects and no duplicates
@@ -85,7 +102,6 @@ class TestGames(unittest.TestCase):
                              'The actions returned by the environment are not saved')
 
     def test_terminal(self):
-        from muzero.environment.games import Game
         step_count = 0
         while not self.game.terminal():
             self.game.apply(self.default_action)
@@ -102,8 +118,57 @@ class TestGames(unittest.TestCase):
             self.assertEqual(image.all(), self.game.observation_history[state_index].all(),
                              'The make image function has to return the observation with the given state index')
 
+    def test_store_search_statistics(self):
+        inserted_mean_value = 7
+        self.default_root_node.get_value_mean = MagicMock(return_value=inserted_mean_value)
+        self.assertEqual(len(self.game.root_values), 0,
+                         'The game should start with an empty value history')
+        self.assertEqual(len(self.game.probability_distributions), 0,
+                         'The game should start with an empty probability distribution history')
+        self.game.store_search_statistics(self.default_root_node)
+        self.assertEqual(len(self.game.root_values), 1,
+                         'The first added root value is missing (root value for initial observation)')
+        self.assertEqual(self.game.root_values[0], inserted_mean_value,
+                         'The saved root value is not the one returned by the root node')
+        self.assertEqual(len(self.game.probability_distributions), 1,
+                         'The first added policy distribution is missing (policy distribution for initial observation)')
+
     def test_make_target(self):
-        pass
+        """
+        TODO: Check whether the value returned by the function is correctly calculated
+        """
+        while not self.game.terminal():
+            self.game.store_search_statistics(self.default_root_node)
+            self.game.apply(self.default_action)
+        state_index = 0
+        num_steps = len(self.game.observation_history) - 1
+        td_steps = 2
+        targets = self.game.make_target(state_index=state_index, num_unroll_steps=num_steps, td_steps=td_steps)
+        self.assertEqual(len(targets), num_steps + 1,
+                         'The returned list should have a target for the initial step + one for every step to unroll')
+        self.assertEqual(len(targets[state_index]), 3,
+                         'Each target should contain three values: value, reward and probability distribution')
+
+        for target_index in range(len(targets)):
+            value, reward, probability_distribution = targets[target_index]
+            print(probability_distribution)
+            if state_index + target_index + td_steps < len(self.game.root_values):
+                self.assertEqual(reward, self.game.reward_history[target_index],
+                                 'The reward returned must have the correct position in the reward history')
+                self.assertNotEqual(probability_distribution, [],
+                                    'All "legal" targets must have a non empty probability distribution')
+                self.assertNotEqual(value, 0,
+                                    "The value (discounted sum of future rewards) can't be 0 before the game terminated")
+            else:
+                self.assertEqual(reward, 0,
+                                 'All target values of time steps where the bootstrapped value cannot be calculated '
+                                 'because the game ended before the reward needed is observed, should be zero')
+                self.assertEqual(probability_distribution, [],
+                                 'All target values of time steps where the bootstrapped value cannot be calculated '
+                                 'because the game ended before the reward needed is observed, should be zero')
+                self.assertEqual(value, 0,
+                                 'All target values of time steps where the bootstrapped value cannot be calculated '
+                                 'because the game ended before the reward needed is observed, should be zero')
 
 
 class TestPlayer(unittest.TestCase):
