@@ -37,6 +37,11 @@ class TestGames(unittest.TestCase):
         self.game = Game(environment=self.env, discount=0.995, number_players=1)
         self.default_action = Action(0)
 
+    def test_game_init_raises_exception_on_invalid_player_number(self):
+        from muzero.environment.games import Game
+        self.assertRaises(Exception, Game, environment=self.env, discount=0.995, number_players=0)
+        self.assertRaises(Exception, Game, environment=self.env, discount=0.995, number_players=3)
+
     # Check that the list of valid actions contains Action objects and no duplicates
     def test_legal_actions(self):
         from muzero.environment.action import Action
@@ -68,27 +73,31 @@ class TestGames(unittest.TestCase):
                          'The player on turn has to rotate in two agent domains')
 
     def test_apply_saves_observations_to_history(self):
-        self.game.apply(self.default_action)
-        self.assertEqual(len(self.game.observation_history), 2,
-                         'The observations returned by the environment are not saved')
-        self.assertEqual(len(self.game.reward_history), 2,
-                         'The rewards returned by the environment are not saved')
-        self.assertEqual(len(self.game.action_history), 2,
-                         'The actions returned by the environment are not saved')
+        state_index = 0
+        while not self.game.terminal():
+            state_index += 1
+            self.game.apply(self.default_action)
+            self.assertEqual(len(self.game.observation_history), state_index + 1,
+                             'The observations returned by the environment are not saved')
+            self.assertEqual(len(self.game.reward_history), state_index + 1,
+                             'The rewards returned by the environment are not saved')
+            self.assertEqual(len(self.game.action_history), state_index + 1,
+                             'The actions returned by the environment are not saved')
 
-        self.game.apply(self.default_action)
-        self.assertEqual(len(self.game.observation_history), 3,
-                         'The observations returned by the environment are not saved')
-        self.assertEqual(len(self.game.reward_history), 3,
-                         'The rewards returned by the environment are not saved')
-        self.assertEqual(len(self.game.action_history), 3,
-                         'The actions returned by the environment are not saved')
+    def test_terminal(self):
+        from muzero.environment.games import Game
+        step_count = 0
+        while not self.game.terminal():
+            self.game.apply(self.default_action)
+            step_count += 1
+        self.assertNotEqual(step_count, 0, 'Game starts with a terminal state')
 
     def test_make_image(self):
-        for state_index in range(3):
+        state_index = 0
+        while not self.game.terminal():
+            # Skip initial observation
+            state_index += 1
             self.game.apply(self.default_action)
-
-        for state_index in range(3):
             image = self.game.make_image(state_index)
             self.assertEqual(image.all(), self.game.observation_history[state_index].all(),
                              'The make image function has to return the observation with the given state index')
