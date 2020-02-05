@@ -9,7 +9,7 @@ from muzero.mcts import min_max_stats
 from muzero.models import prediction_model
 
 from muzero.network import muzero
-from muzero.network import muzero_config
+from muzero import muzero_config
 from muzero.network import network
 from muzero.network import network_storage
 from muzero.network import network_output

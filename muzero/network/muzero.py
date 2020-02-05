@@ -1,4 +1,4 @@
-from muzero.network.muzero_config import MuZeroConfig, MuZeroBoardConfig, MuZeroAtariConfig
+from muzero.muzero_config import MuZeroConfig, MuZeroBoardConfig, MuZeroAtariConfig
 from muzero.network.network_storage import NetworkStorage
 from muzero.network.replay_buffer import ReplayBuffer
 from muzero.network.network import Network

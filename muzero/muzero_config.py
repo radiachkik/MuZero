@@ -73,7 +73,7 @@ class MuZeroConfig(object):
 
 class MuZeroBoardConfig(MuZeroConfig):
     """
-    TODO: Ich verstehe diese definition nicht
+    TODO: Check the temperature function
     """
     @staticmethod
     def visit_softmax_temperature(num_moves, training_steps):
