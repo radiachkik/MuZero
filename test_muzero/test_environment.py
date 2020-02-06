@@ -36,7 +36,7 @@ class TestGames(unittest.TestCase):
         from muzero.mcts.node import Node
         import gym
         self.env = gym.make('CartPole-v0')
-        self.game = Game(environment=self.env, discount=0.995, number_players=1)
+        self.game = Game(environment=self.env, discount=0.995, number_players=1, max_moves=50)
         self.default_action = Action(0)
         self.default_root_node = Node(value=1,
                                       action=self.default_action,
@@ -54,10 +54,10 @@ class TestGames(unittest.TestCase):
 
     def test_game_init_raises_exception_on_invalid_player_number(self):
         from muzero.environment.games import Game
-        self.assertRaises(Exception, Game, environment=self.env, discount=0.995, number_players=0)
-        Game(environment=self.env, discount=0.995, number_players=1)
-        Game(environment=self.env, discount=0.995, number_players=2)
-        self.assertRaises(Exception, Game, environment=self.env, discount=0.995, number_players=3)
+        self.assertRaises(Exception, Game, environment=self.env, discount=0.995, number_players=0, max_moves=50)
+        Game(environment=self.env, discount=0.995, number_players=1, max_moves=50)
+        Game(environment=self.env, discount=0.995, number_players=2, max_moves=50)
+        self.assertRaises(Exception, Game, environment=self.env, discount=0.995, number_players=3, max_moves=50)
 
     # Check that the list of valid actions contains Action objects and no duplicates
     def test_legal_actions(self):
@@ -76,7 +76,7 @@ class TestGames(unittest.TestCase):
     def test_apply_changes_player_on_turn(self):
         from muzero.environment.games import Game
         game_one_player = self.game
-        game_two_players = Game(environment=self.env, discount=0.995, number_players=2)
+        game_two_players = Game(environment=self.env, discount=0.995, number_players=2, max_moves=50)
         to_play_one = game_one_player.to_play()
         to_play_two = game_two_players.to_play()
         game_one_player.apply(self.default_action)

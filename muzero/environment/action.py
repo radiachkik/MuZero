@@ -1,4 +1,4 @@
-class Action(object):
+class Action:
     """
     A class representing one of the possible actions in the environment
     """

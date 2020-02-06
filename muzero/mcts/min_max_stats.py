@@ -5,7 +5,7 @@ KnownBounds = collections.namedtuple('KnownBounds', ['min', 'max'])
 MAXIMUM_FLOAT_VALUE = float('inf')
 
 
-class MinMaxStats(object):
+class MinMaxStats:
 
     """A class that holds the min-max values of the tree."""
 

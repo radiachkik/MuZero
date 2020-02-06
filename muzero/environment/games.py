@@ -1,17 +1,18 @@
-from gym import core
-from typing import List
-
 from muzero.environment.action import Action
 from muzero.environment.player import Player
 from muzero.mcts.node import Node
 
+from gym import core
+from typing import List
+import numpy as np
 
-class Game(object):
+
+class Game:
 	"""
 	A single episode of interaction with the environment.
 	"""
 
-	def __init__(self, environment: core.Env, number_players: int, discount: float):
+	def __init__(self, environment: core.Env, number_players: int, discount: float, max_moves: int):
 		"""
 		:param environment: The gym environment to interact with
 		:param number_players: The number of players alternating in this environment
@@ -34,6 +35,8 @@ class Game(object):
 		self.player_reward = 0
 		self.child_visits = []
 
+		self.max_moves = max_moves
+
 		self.done = False
 
 		if number_players not in [1, 2]:
@@ -54,17 +57,21 @@ class Game(object):
 			action_list.append(Action(i))
 		return action_list
 
-	def apply(self, action: Action):
+	def apply(self, action: Action, to_play: Player):
 		"""
 		Applies a action on the environment and saves the action as well as the observed the next state and reward.
-
+		:param to_play: The player who takes the action
 		:param action: The action to execute in the environment
 		"""
+		if self.terminal():
+			raise Exception('MuZero Games', 'You cant continue to play a terminated game')
 		observation, reward, self.done, _ = self.environment.step(action.action_id)
 		self.observation_history.append(observation)
-		self.reward_history.append(reward if self.to_play() == Player(0) else -reward)
+		self.reward_history.append(reward if to_play == Player(0) else -reward)
 		self.action_history.append(action)
 		self.step += 1
+		if self.step >= self.max_moves:
+			self.done = True
 
 	def store_search_statistics(self, root: Node):
 		"""
@@ -77,14 +84,30 @@ class Game(object):
 		])
 		self.root_values.append(root.get_value_mean())
 
-	def make_image(self, state_index: int) -> List:
+	def make_image(self, state_index: int, is_board_game: bool = False) -> List:
 		"""
 		Get the observation of a specific step of the game
 
+		:param is_board_game:
+			True: Return the
+			False: For Atari games return a tensor with resolution 96x96 and 128 planes (32 history frames of 3 color
+				channels each, concatenated with the corresponding32 actions broadcast to planes).
 		:param state_index: The state index representing a specific time step of the game (similar to index in history buffer)
 		:return: The initial observation of the specified time step
 		"""
-		return self.observation_history[state_index]
+		if state_index == -1:
+			state_index = len(self.observation_history) - 1
+		if is_board_game:
+			return np.array([self.observation_history[state_index]])
+		else:
+			# Atari
+			image = []
+			"""
+			if len(self.observation_history) >= 32:
+				for step in range(1, 33):
+					observation = self.observation_history[-1 * step]
+			"""
+		return np.array([self.observation_history[state_index]])
 
 	def make_target(self, state_index: int, num_unroll_steps: int, td_steps: int) -> List:
 		"""
@@ -113,8 +136,8 @@ class Game(object):
 						(value, self.reward_history[current_index], self.probability_distributions[current_index]))
 			else:
 				# States past the end of games are treated as absorbing states.
-				target_values.append((0, 0, []))
-		return target_values
+				target_values.append((0.0, 0.0, np.zeros(shape=(1, self.action_space_size), dtype=float)))
+		return np.array(target_values)
 
 	def to_play(self) -> Player:
 		"""
