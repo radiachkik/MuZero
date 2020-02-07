@@ -38,19 +38,31 @@ class TestGames(unittest.TestCase):
         self.env = gym.make('CartPole-v0')
         self.game = Game(environment=self.env, discount=0.995, number_players=1, max_moves=50)
         self.default_action = Action(0)
+        self.default_player = Player(0)
         self.default_root_node = Node(value=1,
                                       action=self.default_action,
                                       hidden_state=0,
                                       policy_logits=[0],
-                                      to_play=Player(0),
+                                      to_play=self.default_player,
                                       reward=0)
-        self.default_root_node.child_nodes.append(Node(value=1,
-                                                  action=self.default_action,
-                                                  hidden_state=0,
-                                                  policy_logits=[0],
-                                                  to_play=Player(0),
-                                                  reward=0)
-                                                  )
+        # Add two child nodes for both possible action
+        leaf_one = Node(value=1,
+                        action=self.default_action,
+                        hidden_state=0,
+                        policy_logits=[0],
+                        to_play=self.default_player,
+                        reward=0)
+        leaf_two = Node(value=1,
+                        action=self.default_action,
+                        hidden_state=0,
+                        policy_logits=[0],
+                        to_play=self.default_player,
+                        reward=0)
+        leaf_one.visit_count += 1
+        leaf_two.visit_count += 1
+        self.default_root_node.child_nodes.append(leaf_one)
+        self.default_root_node.child_nodes.append(leaf_two)
+        self.default_root_node.visit_count += 3
 
     def test_game_init_raises_exception_on_invalid_player_number(self):
         from muzero.environment.games import Game
@@ -75,17 +87,18 @@ class TestGames(unittest.TestCase):
 
     def test_apply_changes_player_on_turn(self):
         from muzero.environment.games import Game
+        from muzero.environment.player import Player
         game_one_player = self.game
         game_two_players = Game(environment=self.env, discount=0.995, number_players=2, max_moves=50)
         to_play_one = game_one_player.to_play()
         to_play_two = game_two_players.to_play()
-        game_one_player.apply(self.default_action)
-        game_two_players.apply(self.default_action)
+        game_one_player.apply(self.default_action, self.default_player)
+        game_two_players.apply(self.default_action, self.default_player)
         self.assertEqual(to_play_one, game_one_player.to_play(),
                          'The player on turn must not change in single agent domains')
         self.assertNotEqual(to_play_two, game_two_players.to_play(),
                             'The player on turn has to rotate in two agent domains')
-        game_two_players.apply(self.default_action)
+        game_two_players.apply(self.default_action, Player(1))
         self.assertEqual(to_play_two, game_two_players.to_play(),
                          'The player on turn has to rotate in two agent domains')
 
@@ -93,7 +106,7 @@ class TestGames(unittest.TestCase):
         state_index = 0
         while not self.game.terminal():
             state_index += 1
-            self.game.apply(self.default_action)
+            self.game.apply(self.default_action, self.default_player)
             self.assertEqual(len(self.game.observation_history), state_index + 1,
                              'The observations returned by the environment are not saved')
             self.assertEqual(len(self.game.reward_history), state_index + 1,
@@ -104,7 +117,7 @@ class TestGames(unittest.TestCase):
     def test_terminal(self):
         step_count = 0
         while not self.game.terminal():
-            self.game.apply(self.default_action)
+            self.game.apply(self.default_action, self.default_player)
             step_count += 1
         self.assertNotEqual(step_count, 0, 'Game starts with a terminal state')
 
@@ -113,7 +126,7 @@ class TestGames(unittest.TestCase):
         while not self.game.terminal():
             # Skip initial observation
             state_index += 1
-            self.game.apply(self.default_action)
+            self.game.apply(self.default_action, self.default_player)
             image = self.game.make_image(state_index)
             self.assertEqual(image.all(), self.game.observation_history[state_index].all(),
                              'The make image function has to return the observation with the given state index')
@@ -139,7 +152,7 @@ class TestGames(unittest.TestCase):
         """
         while not self.game.terminal():
             self.game.store_search_statistics(self.default_root_node)
-            self.game.apply(self.default_action)
+            self.game.apply(self.default_action, self.default_player)
         state_index = 0
         num_steps = len(self.game.observation_history) - 1
         td_steps = 2
@@ -151,11 +164,10 @@ class TestGames(unittest.TestCase):
 
         for target_index in range(len(targets)):
             value, reward, probability_distribution = targets[target_index]
-            print(probability_distribution)
             if state_index + target_index + td_steps < len(self.game.root_values):
                 self.assertEqual(reward, self.game.reward_history[target_index],
                                  'The reward returned must have the correct position in the reward history')
-                self.assertNotEqual(probability_distribution, [],
+                self.assertNotEqual(probability_distribution, [[0.0 for _ in range(self.game.action_space_size)]],
                                     'All "legal" targets must have a non empty probability distribution')
                 self.assertNotEqual(value, 0,
                                     "The value (discounted sum of future rewards) can't be 0 before the game terminated")
@@ -163,7 +175,7 @@ class TestGames(unittest.TestCase):
                 self.assertEqual(reward, 0,
                                  'All target values of time steps where the bootstrapped value cannot be calculated '
                                  'because the game ended before the reward needed is observed, should be zero')
-                self.assertEqual(probability_distribution, [],
+                self.assertEqual(probability_distribution, [[0.0 for _ in range(self.game.action_space_size)]],
                                  'All target values of time steps where the bootstrapped value cannot be calculated '
                                  'because the game ended before the reward needed is observed, should be zero')
                 self.assertEqual(value, 0,

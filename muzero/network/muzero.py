@@ -6,7 +6,6 @@ from muzero.mcts.tree import Tree
 from muzero.environment.games import Game
 from muzero.environment.player import Player
 
-from tensorflow.keras.optimizers import Optimizer, SGD
 import tensorflow as tf
 import multiprocessing
 from multiprocessing import Pool, Process
@@ -92,7 +91,7 @@ class MuZero:
         learning_rate = self.config.lr_init * self.config.lr_decay_rate ** (
                 network.train_step / self.config.lr_decay_steps)
         # Optimizer is the SGD optimizer with momentum
-        optimizer = SGD(learning_rate, self.config.momentum)
+        # FIXME: optimizer = SGD(learning_rate, self.config.momentum)
 
         while len(self.replay_buffer.buffer) < self.config.batch_size:
             time.sleep(5)
@@ -109,13 +108,13 @@ class MuZero:
             batch = self.replay_buffer.sample_batch(self.config.num_unroll_steps, self.config.td_steps)
 
             # Calculate the loss that results from the batch and update the weights accordingly
-            self.update_weights(optimizer, network, batch, self.config.weight_decay)
+            self.update_weights(network, batch, self.config.weight_decay)
             print("Trained one step")
 
         # Finally save the trained network
         self.network_storage.save_network(self.config.training_steps, network)
 
-    def update_weights(self, optimizer: Optimizer, network: Network, batch, weight_decay: float):
+    def update_weights(self, network: Network, batch, weight_decay: float):
         """
         First predict the values for the given observations and actions
         Then calculate the loss between those predictions and results of the MCTS stored in the replay buffer
@@ -156,7 +155,7 @@ class MuZero:
         def get_loss():
             return loss
 
-        optimizer.minimize(get_loss, network.get_weights())
+        network.minimize_loss(get_loss)
         network.train_step += 1
 
     def scalar_loss(self, prediction, target) -> float:

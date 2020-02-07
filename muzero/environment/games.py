@@ -65,6 +65,8 @@ class Game:
 		"""
 		if self.terminal():
 			raise Exception('MuZero Games', 'You cant continue to play a terminated game')
+		if to_play != self.to_play():
+			raise Exception('Muzero Games', 'The player on turn has to rotate for board games')
 		observation, reward, self.done, _ = self.environment.step(action.action_id)
 		self.observation_history.append(observation)
 		self.reward_history.append(reward if to_play == Player(0) else -reward)
@@ -79,9 +81,11 @@ class Game:
 
 		:param root: The root node to collect the policy distribution from
 		"""
-		self.probability_distributions.append([
+		if len(root.child_nodes) != self.action_space_size:
+			raise Exception('MuZero Games', 'Cant store the search statistic,s if not every child (for every action) is added')
+		self.probability_distributions.append([[
 			child.visit_count / root.visit_count for child in root.child_nodes
-		])
+		]])
 		self.root_values.append(root.get_value_mean())
 
 	def make_image(self, state_index: int, is_board_game: bool = False) -> List:
@@ -136,7 +140,7 @@ class Game:
 						(value, self.reward_history[current_index], self.probability_distributions[current_index]))
 			else:
 				# States past the end of games are treated as absorbing states.
-				target_values.append((0.0, 0.0, np.zeros(shape=(1, self.action_space_size), dtype=float)))
+				target_values.append((0.0, 0.0, [[0.0 for _ in range(self.action_space_size)]]))
 		return np.array(target_values)
 
 	def to_play(self) -> Player:

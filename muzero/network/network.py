@@ -3,7 +3,7 @@ from muzero.models.representation_model import RepresentationModel
 from muzero.models.dynamics_model import DynamicsModel
 from muzero.models.prediction_model import PredictionModel
 
-from muzero.environment.action import Action
+from datetime import datetime
 
 import tensorflow as tf
 
@@ -19,9 +19,21 @@ class Network:
 	"""
 	def __init__(self, num_action: int, game_mode: str):
 		self.representation_model = RepresentationModel(game_mode)
+		self.representation_model.compile(optimizer='sgd', loss='mse', metrics=['loss'])
 		self.dynamics_model = DynamicsModel()
+		self.dynamics_model.compile(optimizer='sgd', loss='mse', metrics=['loss'])
 		self.prediction_model = PredictionModel(num_actions=num_action)
+		self.prediction_model.compile(optimizer='sgd', loss='mse', metrics=['loss'])
 		self.train_step = 0
+		# Set up logging
+		self.stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+		self.logdir = 'logs/func/%s' % self.stamp
+		self.writer = tf.summary.create_file_writer(self.logdir)
+
+	def minimize_loss(self, loss):
+		pass
+
+
 
 	def initial_inference(self, image, training: bool = True) -> NetworkOutput:
 		"""
@@ -32,7 +44,17 @@ class Network:
 		:return: NetworkOutput (value, reward, policy_logits, hidden_state)
 		"""
 		input_tensor = tf.convert_to_tensor(image, dtype=float)
+
+		tf.summary.trace_on(graph=True, profiler=True)
+
 		hidden_state = self.representation_model(input_tensor, training=training)
+
+		with self.writer.as_default():
+			tf.summary.trace_export(
+				name="representation model",
+				step=0,
+				profiler_outdir=self.logdir)
+
 		value, policy_distribution = self.prediction_model(hidden_state, training=training)
 		# Convert the tensor policy distribution to a dict containing a probability for each action
 

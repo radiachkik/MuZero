@@ -1,6 +1,5 @@
 from muzero.models.layer_blocks import ConvBlock, ResConvBlock, ValueHead, PolicyHead
 
-import tensorflow as tf
 from tensorflow.keras import Model
 
 
@@ -11,13 +10,16 @@ class PredictionModel(Model):
 
     def __init__(self, num_actions: int):
         """
-        TODO: Move to tests:
-            pred = PredictionModel(10)
-            value, policy = pred(tf.zeros([3, 24, 24, 5]))
-            print("Value Shape: ", value.shape) # has to be (3, 1)
-            print("Policy Shape: ", policy.shape) # has to be (3, 10) as the number of actions defined is 10
-            print("Value: ", value)
-            print("Policy: ", policy)
+        Loss Function:
+        Loss function = value loss + policy loss + L2 regularization
+        Value loss = mean squared error between the value predicted and the one returned by the MCTS
+        Policy Loss = cross entropy between the predicted propability distribution and the one returned by the MCTS
+        Regularization helps prevent over-fitting by adding a penalty if the weights within the actual network get to big
+
+        Optimizer:
+        SGD with momentum optimizer, momentum = 0.9
+        Learning Rate: 10^-2 -> 10^-4 (after 600k training steps, no )
+
         :param num_actions: The number of different actions to predict the probability for
         """
         super(PredictionModel, self).__init__(name='PredictionModel')
@@ -72,7 +74,6 @@ class PredictionModel(Model):
 
     def call(self, input_tensor, training = False):
         """
-
         :param input_tensor: The current hidden state
         :param training: bool
         :return: The predicted probability distribution of the policy
@@ -106,25 +107,3 @@ class PredictionModel(Model):
 
         return value, policy
 
-
-
-"""
-Loss Function:
-Loss function = value loss + policy loss + L2 regularization
-Value loss = mean squared error between the value predicted and the one returned by the MCTS
-Policy Loss = cross entropy between the predicted propability distribution and the one returned by the MCTS
-Regularization helps prevent over-fitting by adding a penalty if the weights within the actual network get to big
-
-Optimizer:
-SGD with momentum optimizer, momentum = 0.9
-Learning Rate: 10^-2 -> 10^-4 (after 600k training steps, no )
-"""
-if __name__ == '__main__':
-    pred = PredictionModel(10)
-    value, policy = pred(tf.ones([3, 24, 24, 5]))
-    print("Value Shape: ", value.shape)
-    print("Policy Shape: ", policy.shape)
-    print("Value: ", value)
-    print("Policy: ", policy)
-
-    # print('trainable weights: ', tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES))

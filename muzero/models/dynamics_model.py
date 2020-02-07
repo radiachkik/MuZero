@@ -1,6 +1,5 @@
 from muzero.models.layer_blocks import ConvBlock, ResConvBlock, ValueHead
 
-import tensorflow as tf
 from tensorflow.keras import Model
 
 
@@ -36,7 +35,6 @@ class DynamicsModel(Model):
 
     def call(self, input_tensor, training = False):
         """
-
         :param input_tensor: Tensor with one layer for the current hidden state and for second the encoded action
         :param training: bool
         :return: The predicted next hidden state resulting from the transition
@@ -65,27 +63,4 @@ class DynamicsModel(Model):
         reward = self.reward_head(x, training=training)
 
         return next_hidden_state, reward
-
-
-if __name__ == '__main__':
-    dyn = DynamicsModel()
-    hidden_states = tf.ones([4, 3, 3, 1])
-    print("Hidden state Shape: ", hidden_states.shape)
-
-    input_tensor = None
-
-    for state in hidden_states:
-        action = tf.ones([3, 3, 1])
-        state_with_action = tf.concat([state, action], axis=2)
-        if input_tensor is None:
-            input_tensor = [state_with_action]
-        else:
-            input_tensor = tf.concat([input_tensor, [state_with_action]], axis=0)
-
-    print('Hidden state with action shape: ', input_tensor.shape)
-
-    hidden_states, reward = dyn(input_tensor, training=True)
-    print('Shape of returned next hidden states: ', hidden_states.shape)
-    assert hidden_states.shape == (4, 3, 3, 1)
-    print(reward)
 
