@@ -8,6 +8,7 @@ from muzero.environment.player import Player
 
 import tensorflow as tf
 import multiprocessing
+from datetime import datetime
 from multiprocessing import Pool, Process
 import numpy as np
 import time
@@ -27,6 +28,9 @@ class MuZero:
         self.replay_buffer = ReplayBuffer(config)  # The replay buffer containing the matches to train on
         self.config = config  # Configuration file
         self.frame_count = 0
+        self.logdir = 'logs/' + datetime.now().strftime("%Y%m%d-%H%M%S")
+        self.graph_traced = False
+
 
     def start_training(self):
         """
@@ -130,7 +134,19 @@ class MuZero:
 
             # Recurrent steps, from action and previous hidden state.
             for action in actions:
-                value, reward, policy_logits, hidden_state = network.recurrent_inference(hidden_state, action)
+                action_tensor = tf.convert_to_tensor(action.action_id, dtype=float)
+                if not self.graph_traced:
+                    tf.summary.trace_on(graph=True, profiler=False)
+                    value, reward, policy_logits, hidden_state = network.recurrent_inference(hidden_state, action_tensor)
+                    writer = tf.summary.create_file_writer(self.logdir)
+                    with writer.as_default():
+                        tf.summary.trace_export(
+                            name="my_func_trace",
+                            step=0)
+                    self.graph_traced = True
+                else:
+                    value, reward, policy_logits, hidden_state = network.recurrent_inference(hidden_state, action_tensor)
+
                 hidden_state = scale_gradient(hidden_state, 0.5)
                 predictions.append((1.0 / len(actions), value, reward, policy_logits))
 

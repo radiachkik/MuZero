@@ -132,6 +132,7 @@ class TestGames(unittest.TestCase):
                              'The make image function has to return the observation with the given state index')
 
     def test_store_search_statistics(self):
+        import tensorflow as tf
         inserted_mean_value = 7
         self.default_root_node.get_value_mean = MagicMock(return_value=inserted_mean_value)
         self.assertEqual(len(self.game.root_values), 0,
@@ -141,8 +142,8 @@ class TestGames(unittest.TestCase):
         self.game.store_search_statistics(self.default_root_node)
         self.assertEqual(len(self.game.root_values), 1,
                          'The first added root value is missing (root value for initial observation)')
-        self.assertEqual(self.game.root_values[0], inserted_mean_value,
-                         'The saved root value is not the one returned by the root node')
+        self.assertTrue(tf.math.equal(self.game.root_values[0], tf.convert_to_tensor(inserted_mean_value, dtype=float)),
+                        'The saved root value is not the one returned by the root node')
         self.assertEqual(len(self.game.probability_distributions), 1,
                          'The first added policy distribution is missing (policy distribution for initial observation)')
 
@@ -150,6 +151,7 @@ class TestGames(unittest.TestCase):
         """
         TODO: Check whether the value returned by the function is correctly calculated
         """
+        import tensorflow as tf
         while not self.game.terminal():
             self.game.store_search_statistics(self.default_root_node)
             self.game.apply(self.default_action, self.default_player)
@@ -172,13 +174,15 @@ class TestGames(unittest.TestCase):
                 self.assertNotEqual(value, 0,
                                     "The value (discounted sum of future rewards) can't be 0 before the game terminated")
             else:
-                self.assertEqual(reward, 0,
-                                 'All target values of time steps where the bootstrapped value cannot be calculated '
-                                 'because the game ended before the reward needed is observed, should be zero')
-                self.assertEqual(probability_distribution, [[0.0 for _ in range(self.game.action_space_size)]],
-                                 'All target values of time steps where the bootstrapped value cannot be calculated '
-                                 'because the game ended before the reward needed is observed, should be zero')
-                self.assertEqual(value, 0,
+                self.assertTrue(tf.math.equal(reward, tf.convert_to_tensor(0, dtype=float)),
+                                'All target values of time steps where the bootstrapped value cannot be calculated '
+                                'because the game ended before the reward needed is observed, should be zero')
+                # Have to iterate the tensors because we cannot compare two eager tensors directly
+                for (probability_value, probability_test) in zip(probability_distribution, tf.convert_to_tensor([0.0 for _ in range(self.game.action_space_size)])):
+                    self.assertTrue(tf.math.equal(probability_value, probability_test),
+                                    'All target values of time steps where the bootstrapped value cannot be calculated '
+                                    'because the game ended before the reward needed is observed, should be zero')
+                self.assertTrue(tf.math.equal(value, tf.convert_to_tensor(0, dtype=float)),
                                  'All target values of time steps where the bootstrapped value cannot be calculated '
                                  'because the game ended before the reward needed is observed, should be zero')
 

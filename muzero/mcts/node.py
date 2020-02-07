@@ -3,6 +3,7 @@ from muzero.mcts.min_max_stats import MinMaxStats
 from muzero.environment.player import Player
 from muzero.environment.action import Action
 
+import tensorflow as tf
 from typing import Optional, List
 import collections
 import math
@@ -58,7 +59,8 @@ class Node:
             raise Exception('MCTS Node', 'Cant explore the same node twice')
 
         for action in legal_actions:  # Only add child nodes if the maximum search depth is not reached
-            value, reward, policy_logits, hidden_state = Node.network.recurrent_inference(self.hidden_state, action)
+            action_tensor = tf.convert_to_tensor(action.action_id, dtype=float)
+            value, reward, policy_logits, hidden_state = Node.network.recurrent_inference(self.hidden_state, action_tensor)
             min_max_stats.update(value)
             value = min_max_stats.normalize(value)
             self.visit_count += 1

@@ -4,7 +4,6 @@ from muzero.models.dynamics_model import DynamicsModel
 from muzero.models.prediction_model import PredictionModel
 
 from datetime import datetime
-
 import tensorflow as tf
 
 game_mode_dict = {
@@ -17,24 +16,18 @@ class Network:
 	"""
 	This class represents the network structure consisting of the representation, dynamics and prediction model
 	"""
+
 	def __init__(self, num_action: int, game_mode: str):
 		self.representation_model = RepresentationModel(game_mode)
-		self.representation_model.compile(optimizer='sgd', loss='mse', metrics=['loss'])
 		self.dynamics_model = DynamicsModel()
-		self.dynamics_model.compile(optimizer='sgd', loss='mse', metrics=['loss'])
 		self.prediction_model = PredictionModel(num_actions=num_action)
-		self.prediction_model.compile(optimizer='sgd', loss='mse', metrics=['loss'])
 		self.train_step = 0
-		# Set up logging
-		self.stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-		self.logdir = 'logs/func/%s' % self.stamp
-		self.writer = tf.summary.create_file_writer(self.logdir)
 
+	@tf.function
 	def minimize_loss(self, loss):
 		pass
 
-
-
+	@tf.function
 	def initial_inference(self, image, training: bool = True) -> NetworkOutput:
 		"""
 		Execute the representation function in order to get the current hidden state, then execute the prediction function
@@ -45,21 +38,13 @@ class Network:
 		"""
 		input_tensor = tf.convert_to_tensor(image, dtype=float)
 
-		tf.summary.trace_on(graph=True, profiler=True)
-
 		hidden_state = self.representation_model(input_tensor, training=training)
 
-		with self.writer.as_default():
-			tf.summary.trace_export(
-				name="representation model",
-				step=0,
-				profiler_outdir=self.logdir)
-
 		value, policy_distribution = self.prediction_model(hidden_state, training=training)
-		# Convert the tensor policy distribution to a dict containing a probability for each action
 
 		return NetworkOutput(value=value, reward=0.0, policy_logits=policy_distribution, hidden_state=hidden_state)
 
+	@tf.function
 	def recurrent_inference(self, hidden_state, action, training: bool = True) -> NetworkOutput:
 		"""
 		First execute the dynamics function to get the next hidden state, then execute the prediction function
@@ -69,7 +54,7 @@ class Network:
 		:param training: bool
 		:return: NetworkOutput
 		"""
-		action_layer = tf.ones(hidden_state.shape) * action.action_id
+		action_layer = tf.ones(hidden_state.shape) * action
 		hidden_state_with_action = tf.concat([hidden_state, action_layer], axis=3)
 
 		next_hidden_state, reward = self.dynamics_model(hidden_state_with_action)

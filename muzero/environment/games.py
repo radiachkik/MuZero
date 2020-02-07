@@ -5,6 +5,7 @@ from muzero.mcts.node import Node
 from gym import core
 from typing import List
 import numpy as np
+import tensorflow as tf
 
 
 class Game:
@@ -83,10 +84,10 @@ class Game:
 		"""
 		if len(root.child_nodes) != self.action_space_size:
 			raise Exception('MuZero Games', 'Cant store the search statistic,s if not every child (for every action) is added')
-		self.probability_distributions.append([[
+		self.probability_distributions.append(tf.convert_to_tensor([[
 			child.visit_count / root.visit_count for child in root.child_nodes
-		]])
-		self.root_values.append(root.get_value_mean())
+		]], dtype=float))
+		self.root_values.append(tf.convert_to_tensor([root.get_value_mean()], dtype=float))
 
 	def make_image(self, state_index: int, is_board_game: bool = False) -> List:
 		"""
@@ -102,16 +103,15 @@ class Game:
 		if state_index == -1:
 			state_index = len(self.observation_history) - 1
 		if is_board_game:
-			return np.array([self.observation_history[state_index]])
+			return tf.convert_to_tensor([self.observation_history[state_index]], dtype=float)
 		else:
 			# Atari
-			image = []
 			"""
 			if len(self.observation_history) >= 32:
 				for step in range(1, 33):
 					observation = self.observation_history[-1 * step]
 			"""
-		return np.array([self.observation_history[state_index]])
+		return tf.convert_to_tensor([self.observation_history[state_index]], dtype=float)
 
 	def make_target(self, state_index: int, num_unroll_steps: int, td_steps: int) -> List:
 		"""
@@ -140,7 +140,10 @@ class Game:
 						(value, self.reward_history[current_index], self.probability_distributions[current_index]))
 			else:
 				# States past the end of games are treated as absorbing states.
-				target_values.append((0.0, 0.0, [[0.0 for _ in range(self.action_space_size)]]))
+				target_value = tf.convert_to_tensor(0, dtype=float)
+				target_reward = tf.convert_to_tensor(0, dtype=float)
+				target_policy = tf.convert_to_tensor([0 for _ in range(self.action_space_size)], dtype=float)
+				target_values.append((target_value, target_reward, target_policy))
 		return np.array(target_values)
 
 	def to_play(self) -> Player:
