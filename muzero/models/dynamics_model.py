@@ -1,9 +1,9 @@
-from muzero.models.layer_blocks import ConvBlock, ResConvBlock, ValueHead
+from muzero.models.layer_blocks import ConvBlock, ResConvBlock, RewardHead
 
-from tensorflow.keras import Model
+import tensorflow as tf
 
 
-class DynamicsModel(Model):
+class DynamicsModel(tf.keras.Model):
     """
     The model representing the dynamics function
     """
@@ -30,8 +30,8 @@ class DynamicsModel(Model):
         self.res_block_15 = ResConvBlock(filters=256, kernel_size=(3, 3), name='DynamicsResLayer15')
         self.res_block_16 = ResConvBlock(filters=256, kernel_size=(3, 3), name='DynamicsResLayer16')
 
-        self.next_hidden_state_head = ConvBlock(filters=1, kernel_size=(1, 1), name='DynamicsModelInput')
-        self.reward_head = ValueHead()
+        self.next_hidden_state_head = ConvBlock(filters=1, kernel_size=(1, 1), name='DynamicsModelOutput')
+        self.reward_head = RewardHead()
 
     def call(self, input_tensor, training = False):
         """

@@ -56,7 +56,7 @@ class MuZeroConfig:
         self.checkpoint_interval = int(1e3)
         self.window_size = int(1e6)
         self.batch_size = batch_size
-        self.num_unroll_steps = 1
+        self.num_unroll_steps = 2
         self.td_steps = td_steps
 
         self.weight_decay = 1e-4
@@ -136,13 +136,13 @@ class MuZeroAtariConfig(MuZeroConfig):
             environment=environment,
             action_space_size=environment.action_space.n,
             number_players=1,
-            max_moves=2,  # Half an hour at action repeat 4.
+            max_moves=3,  # Half an hour at action repeat 4.
             discount=0.975,
             dirichlet_alpha=0.25,
             num_simulations=2,
             batch_size=1,
             td_steps=1,
             lr_init=0.1,
-            lr_decay_steps=350e2,
+            lr_decay_steps=35000,
             visit_softmax_temperature_fn=self.visit_softmax_temperature
         )

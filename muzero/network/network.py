@@ -1,9 +1,7 @@
-from muzero.network.network_output import NetworkOutput
 from muzero.models.representation_model import RepresentationModel
 from muzero.models.dynamics_model import DynamicsModel
 from muzero.models.prediction_model import PredictionModel
 
-from datetime import datetime
 import tensorflow as tf
 
 game_mode_dict = {
@@ -16,19 +14,29 @@ class Network:
 	"""
 	This class represents the network structure consisting of the representation, dynamics and prediction model
 	"""
-
-	def __init__(self, num_action: int, game_mode: str):
+	def __init__(self, num_action: int, game_mode: str, lr_init: float, lr_decay_rate: float, lr_decay_steps: int, momentum):
 		self.representation_model = RepresentationModel(game_mode)
 		self.dynamics_model = DynamicsModel()
 		self.prediction_model = PredictionModel(num_actions=num_action)
 		self.train_step = 0
+		self.lr_init = lr_init
+		self.lr_decay_rate = lr_decay_rate
+		self.lr_decay_steps = lr_decay_steps
+		self.momentum = momentum
 
-	@tf.function
 	def minimize_loss(self, loss):
-		pass
+		# Set the learning rate accordingly to the current training step
+		learning_rate = self.lr_init * self.lr_decay_rate ** (self.train_step / self.lr_decay_steps)
+		# Optimizer is the SGD optimizer with momentum
+		optimizer = tf.keras.optimizers.SGD(learning_rate, self.momentum)
+		# FIXME: This could be the last big issue: We need to find a way to optimize the weights using BPTT
+		#opt_op = optimizer.minimize(loss, [])
+		#opt_op.run()
+		self.train_step += 1
+
 
 	@tf.function
-	def initial_inference(self, image, training: bool = True) -> NetworkOutput:
+	def initial_inference(self, image, training: bool = True):
 		"""
 		Execute the representation function in order to get the current hidden state, then execute the prediction function
 
@@ -36,37 +44,33 @@ class Network:
 		:param training: whether the batch normalization should depend on the current batch (not overall statistics)
 		:return: NetworkOutput (value, reward, policy_logits, hidden_state)
 		"""
-		input_tensor = tf.convert_to_tensor(image, dtype=float)
-
-		hidden_state = self.representation_model(input_tensor, training=training)
+		hidden_state = self.representation_model(image, training=training)
 
 		value, policy_distribution = self.prediction_model(hidden_state, training=training)
+		reward = tf.constant(0, shape=(1, 1), dtype=float, name='zero_reward')
 
-		return NetworkOutput(value=value, reward=0.0, policy_logits=policy_distribution, hidden_state=hidden_state)
+		return tf.identity(value, 'value'), tf.identity(reward, 'reward'), tf.identity(policy_distribution, 'policy'), tf.identity(hidden_state, 'hidden_state')
 
 	@tf.function
-	def recurrent_inference(self, hidden_state, action, training: bool = True) -> NetworkOutput:
+	def recurrent_inference(self, hidden_state_with_action, training: bool = True):
 		"""
 		First execute the dynamics function to get the next hidden state, then execute the prediction function
 
-		:param hidden_state: The current hidden state
-		:param action: The chosen action
+		:param hidden_state_with_action: The current hidden state combined with the chosen action
 		:param training: bool
 		:return: NetworkOutput
 		"""
-		action_layer = tf.ones(hidden_state.shape) * action
-		hidden_state_with_action = tf.concat([hidden_state, action_layer], axis=3)
-
 		next_hidden_state, reward = self.dynamics_model(hidden_state_with_action)
 		value, policy_distribution = self.prediction_model(next_hidden_state, training=training)
 
-		return NetworkOutput(value=value, reward=reward, policy_logits=policy_distribution, hidden_state=hidden_state)
+		return tf.identity(value, 'value'), tf.identity(reward, 'reward'), tf.identity(policy_distribution, 'policy'), tf.identity(next_hidden_state, 'next_hidden_state')
 
 	def get_weights(self):
 		"""
 		:return: The weights of this network.
 		"""
-		return []
+
+		return [self.representation_model.get_weights(), self.dynamics_model.get_weights(), self.prediction_model.get_weights()]
 
 	def training_steps(self) -> int:
 		"""

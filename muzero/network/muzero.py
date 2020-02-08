@@ -10,7 +10,6 @@ import tensorflow as tf
 import multiprocessing
 from datetime import datetime
 from multiprocessing import Pool, Process
-import numpy as np
 import time
 import os
 
@@ -30,6 +29,7 @@ class MuZero:
         self.frame_count = 0
         self.logdir = 'logs/' + datetime.now().strftime("%Y%m%d-%H%M%S")
         self.graph_traced = False
+        self.writer = None
 
 
     def start_training(self):
@@ -90,12 +90,12 @@ class MuZero:
         """
         print("Started training job but waits till buffer is filled enough")
         # Create new network (representation model, dynamics model, prediction model)
-        network = Network(num_action=self.config.action_space_size, game_mode='Atari')
-        # Set the learning rate accordingly to the current training step
-        learning_rate = self.config.lr_init * self.config.lr_decay_rate ** (
-                network.train_step / self.config.lr_decay_steps)
-        # Optimizer is the SGD optimizer with momentum
-        # FIXME: optimizer = SGD(learning_rate, self.config.momentum)
+        network = Network(num_action=self.config.action_space_size,
+                          game_mode='Atari',
+                          lr_init=self.config.lr_init,
+                          lr_decay_rate=self.config.lr_decay_rate,
+                          lr_decay_steps=self.config.lr_decay_steps,
+                          momentum=self.config.momentum)
 
         while len(self.replay_buffer.buffer) < self.config.batch_size:
             time.sleep(5)
@@ -113,7 +113,6 @@ class MuZero:
 
             # Calculate the loss that results from the batch and update the weights accordingly
             self.update_weights(network, batch, self.config.weight_decay)
-            print("Trained one step")
 
         # Finally save the trained network
         self.network_storage.save_network(self.config.training_steps, network)
@@ -125,28 +124,44 @@ class MuZero:
         Before optimizing the weights, add a L2-Regularization to the loss (adds a penalty if the weights get to big)
         Finally updating all weights in the network (all 3 models) with the given optimizer.
         """
-        loss = 0
+
+        loss = tf.convert_to_tensor([0], dtype=float)
+
         for image, actions, targets in batch:
+            if not self.graph_traced:
+                tf.summary.trace_on(
+                    graph=True,
+                    profiler=False
+                )
+            # Prevents the computation of the image to be taken into account for computing gradients
+            image = tf.stop_gradient(image, 'get_image')
             # Transform real observation to hidden state, then predict value, reward and policy distribution for it
-            # TODO: Dont understand how the reward can be predicted on a single state (without any given action)
+
             value, reward, policy_logits, hidden_state = network.initial_inference(image)
+
+            if not self.graph_traced:
+                self.writer = tf.summary.create_file_writer(self.logdir)
+                with self.writer.as_default():
+                    tf.summary.trace_export(
+                        name="initial_inference",
+                        step=0)
+
             predictions = [(1.0, value, reward, policy_logits)]
 
             # Recurrent steps, from action and previous hidden state.
+            if not self.graph_traced:
+                tf.summary.trace_on(
+                    graph=True,
+                    profiler=False
+                )
             for action in actions:
+                # Build the input for the recurrent inference and stop the gradients at the input
                 action_tensor = tf.convert_to_tensor(action.action_id, dtype=float)
-                if not self.graph_traced:
-                    tf.summary.trace_on(graph=True, profiler=False)
-                    value, reward, policy_logits, hidden_state = network.recurrent_inference(hidden_state, action_tensor)
-                    writer = tf.summary.create_file_writer(self.logdir)
-                    with writer.as_default():
-                        tf.summary.trace_export(
-                            name="my_func_trace",
-                            step=0)
-                    self.graph_traced = True
-                else:
-                    value, reward, policy_logits, hidden_state = network.recurrent_inference(hidden_state, action_tensor)
+                action_layer = tf.ones(hidden_state.shape) * action_tensor
+                hidden_state_with_action = tf.concat([hidden_state, action_layer], axis=3)
+                hidden_state_with_action = tf.stop_gradient(hidden_state_with_action, 'get_hidden_state_with_action')
 
+                value, reward, policy_logits, hidden_state = network.recurrent_inference(hidden_state_with_action)
                 hidden_state = scale_gradient(hidden_state, 0.5)
                 predictions.append((1.0 / len(actions), value, reward, policy_logits))
 
@@ -154,6 +169,11 @@ class MuZero:
             for prediction, target in zip(predictions, targets):
                 gradient_scale, value, reward, policy_logits = prediction
                 target_value, target_reward, target_policy = target
+
+                assert value.shape == target_value.shape
+                assert reward.shape == target_reward.shape
+                assert policy_logits.shape == target_policy.shape
+
                 l = (
                         self.scalar_loss(value, target_value) +
                         self.scalar_loss(reward, target_reward) +
@@ -162,17 +182,24 @@ class MuZero:
 
                 loss += scale_gradient(l, gradient_scale)
 
+            if not self.graph_traced:
+                with self.writer.as_default():
+                    tf.summary.trace_export(
+                        name="recurrent_inference",
+                        step=0)
+                self.graph_traced = True
+
         # Add L2-Regularization to the overall loss
         for weights in network.get_weights():
             loss += weight_decay * tf.nn.l2_loss(weights)
 
         # Optimize the current weights
         print('Loss: ', loss)
+
         def get_loss():
-            return loss
+            return tf.convert_to_tensor(loss, dtype=float)
 
         network.minimize_loss(get_loss)
-        network.train_step += 1
 
     def scalar_loss(self, prediction, target) -> float:
         """
@@ -181,11 +208,11 @@ class MuZero:
         TODO: Finish cross entropy for atari games with categorical values
         """
         if isinstance(self.config, MuZeroBoardConfig):
-            squared_error = tf.keras.losses.MSE(np.array([prediction]), np.array[target])
+            squared_error = tf.keras.losses.MSE(prediction, target)
             return tf.cast(squared_error, dtype=float)
 
         elif isinstance(self.config, MuZeroAtariConfig):
-            squared_error = tf.keras.losses.MSE(np.array([prediction]), np.array([target]))
+            squared_error = tf.keras.losses.MSE(prediction, target)
             return tf.cast(squared_error, dtype=float)
         else:
             raise Exception('MuZero', 'Please use the AtariConfig or the BoardConfig for calculating appropriate loss')

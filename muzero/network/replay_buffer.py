@@ -25,7 +25,6 @@ class ReplayBuffer:
         if len(self.buffer) > self.window_size:
             self.buffer.pop(0)
         self.buffer.append(game)
-        print("saved")
 
     def sample_batch(self, num_unroll_steps: int, td_steps: int):
         """

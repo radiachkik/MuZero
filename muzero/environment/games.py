@@ -84,10 +84,8 @@ class Game:
 		"""
 		if len(root.child_nodes) != self.action_space_size:
 			raise Exception('MuZero Games', 'Cant store the search statistic,s if not every child (for every action) is added')
-		self.probability_distributions.append(tf.convert_to_tensor([[
-			child.visit_count / root.visit_count for child in root.child_nodes
-		]], dtype=float))
-		self.root_values.append(tf.convert_to_tensor([root.get_value_mean()], dtype=float))
+		self.probability_distributions.append([child.visit_count / root.visit_count for child in root.child_nodes])
+		self.root_values.append(root.get_value_mean())
 
 	def make_image(self, state_index: int, is_board_game: bool = False) -> List:
 		"""
@@ -119,13 +117,13 @@ class Game:
 		sum of all rewards until then. The sum is the predicted reward from the very beginning until n-steps in the future
 
 		:param state_index: The time step to make the target functions from
-		:param num_unroll_steps: How further time steps should be included in the targets
-		:param td_steps: How many time steps should be included in determining the value target
+		:param num_unroll_steps: How many future time steps should be evaluated
+		:param td_steps: How many time steps should be included in determining the value target of each time step
 		:return: A List containing the values of the target functions from num_unroll_states subsequent states
 		"""
 		target_values = []
 		# Add target value for each step from state_index till state_index + num_unroll_steps
-		for current_index in range(state_index, state_index + num_unroll_steps + 1):
+		for current_index in range(state_index, state_index + num_unroll_steps):
 			bootstrap_index = current_index + td_steps
 			if bootstrap_index < len(self.root_values):
 				# First part of target value is the discounted value of current_index + td_steps (0 if game already terminated)
@@ -136,15 +134,17 @@ class Game:
 					value += reward * self.discount ** i
 				# Add the current target value to the list, if the game hasn't terminated yet
 				if current_index < len(self.root_values):
-					target_values.append(
-						(value, self.reward_history[current_index], self.probability_distributions[current_index]))
+					target_value = tf.constant(0, shape=(1, 1), dtype=float, name='target value')
+					target_reward = tf.constant(self.reward_history[current_index], shape=(1, 1), dtype=float, name='target reward')
+					target_policy = tf.convert_to_tensor([self.probability_distributions[current_index]], dtype=float, name='target policy')
+					target_values.append((target_value, target_reward, target_policy))
 			else:
 				# States past the end of games are treated as absorbing states.
-				target_value = tf.convert_to_tensor(0, dtype=float)
-				target_reward = tf.convert_to_tensor(0, dtype=float)
-				target_policy = tf.convert_to_tensor([0 for _ in range(self.action_space_size)], dtype=float)
+				target_value = tf.constant(0, shape=(1, 1), dtype=float, name='target value')
+				target_reward = tf.constant(0, shape=(1, 1), dtype=float, name='target reward')
+				target_policy = tf.convert_to_tensor([[0 for _ in range(self.action_space_size)]], dtype=float, name='target policy')
 				target_values.append((target_value, target_reward, target_policy))
-		return np.array(target_values)
+		return target_values
 
 	def to_play(self) -> Player:
 		"""

@@ -60,7 +60,11 @@ class Node:
 
         for action in legal_actions:  # Only add child nodes if the maximum search depth is not reached
             action_tensor = tf.convert_to_tensor(action.action_id, dtype=float)
-            value, reward, policy_logits, hidden_state = Node.network.recurrent_inference(self.hidden_state, action_tensor)
+            action_layer = tf.ones(self.hidden_state.shape) * action_tensor
+            hidden_state_with_action = tf.concat([self.hidden_state, action_layer], axis=3)
+            hidden_state_with_action = tf.stop_gradient(hidden_state_with_action, 'get_hidden_state_with_action')
+
+            value, reward, policy_logits, hidden_state = Node.network.recurrent_inference(hidden_state_with_action)
             min_max_stats.update(value)
             value = min_max_stats.normalize(value)
             self.visit_count += 1

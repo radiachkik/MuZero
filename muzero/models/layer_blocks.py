@@ -115,6 +115,40 @@ class PolicyHead(tf.keras.Model):
         return x
 
 
+class RewardHead(tf.keras.Model):
+    """
+    The value head of the prediction model
+    """
+    def __init__(self):
+        """
+
+        """
+        super(RewardHead, self).__init__(name='RewardHead')
+        self.conv2d_layer = Conv2D(1, (1, 1))
+        self.batch_norm_layer = BatchNormalization()
+        self.flatten_layer = Flatten()
+        self.dense_layer_1 = Dense(256)
+        self.dense_layer_2 = Dense(1)
+
+    def call(self, input_tensor, training = False):
+        """
+
+        :param input_tensor: The output of the last residual convolutional block
+        :param training:
+            True means that the layer will normalize the inputs using the the data of the current batch
+            False means that the layer will normalize using the mean and variance learned during training
+        :return: The predicted value of this state (discounted sum of future rewards within a specific amount of steps)
+        """
+        x = self.conv2d_layer(input_tensor)
+        x = self.batch_norm_layer(x, training=training)
+        x = tf.nn.relu(x)
+        x = self.flatten_layer(x)
+        x = self.dense_layer_1(x)
+        x = tf.nn.relu(x)
+        x = self.dense_layer_2(x)
+        return tanh(x)
+
+
 class AtariDownSampler(tf.keras.Model):
     """
     Because the observations of Atari games have large spatial resolution, we have to downsample it first.

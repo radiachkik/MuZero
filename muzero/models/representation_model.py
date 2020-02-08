@@ -1,6 +1,6 @@
 from muzero.models.layer_blocks import ConvBlock, ResConvBlock, AtariDownSampler, BoardGameDownSampler
 
-from tensorflow.keras import Model
+import tensorflow as tf
 
 
 resolution_sampler_dict = {
@@ -9,7 +9,7 @@ resolution_sampler_dict = {
 }
 
 
-class RepresentationModel(Model):
+class RepresentationModel(tf.keras.Model):
     """
     The model representing the dynamics function
     """

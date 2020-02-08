@@ -1,9 +1,8 @@
 from muzero.models.layer_blocks import ConvBlock, ResConvBlock, ValueHead, PolicyHead
 
-from tensorflow.keras import Model
+import tensorflow as tf
 
-
-class PredictionModel(Model):
+class PredictionModel(tf.keras.Model):
     """
     The model representing the prediction function
     """
