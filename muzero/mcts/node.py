@@ -3,6 +3,7 @@ from muzero.mcts.min_max_stats import MinMaxStats
 from muzero.environment.player import Player
 from muzero.environment.action import Action
 
+import tensorflow as tf
 from typing import Optional, List
 import collections
 import math
@@ -19,7 +20,7 @@ A reward of 1 means a win, reward of -1 means a loss and everything else is trea
 """
 
 
-class Node(object):
+class Node:
     network = None
 
     @staticmethod
@@ -43,8 +44,7 @@ class Node(object):
         self.hidden_state = hidden_state
         self.policy_logits = policy_logits
 
-        self.to_play = None
-        self.visit_count = 1
+        self.visit_count = 0
         self.child_nodes = []
 
     """
@@ -59,9 +59,15 @@ class Node(object):
             raise Exception('MCTS Node', 'Cant explore the same node twice')
 
         for action in legal_actions:  # Only add child nodes if the maximum search depth is not reached
-            value, reward, policy_logits, hidden_state = Node.network.recurrent_inference(self.hidden_state, action)
+            action_tensor = tf.convert_to_tensor(action.action_id, dtype=float)
+            action_layer = tf.ones(self.hidden_state.shape) * action_tensor
+            hidden_state_with_action = tf.concat([self.hidden_state, action_layer], axis=3)
+            hidden_state_with_action = tf.stop_gradient(hidden_state_with_action, 'get_hidden_state_with_action')
+
+            value, reward, policy_logits, hidden_state = Node.network.recurrent_inference(hidden_state_with_action)
             min_max_stats.update(value)
             value = min_max_stats.normalize(value)
+            self.visit_count += 1
 
             # the next hidden state of this action
             leaf = Node(reward=reward,
@@ -122,7 +128,7 @@ class Node(object):
 
             unknown_indicator = math.sqrt(self.visit_count) / (1 + child.visit_count)
             # Is higher the less the chosen node is explored(decreases while searching)
-            exploration_summand = exploration_weight * child.action_propability * unknown_indicator
+            exploration_summand = exploration_weight * unknown_indicator
             # Is higher the more this node is expected to be beneficial
             exploitation_summand = child.get_value_mean()
             uct_value = exploitation_summand + exploration_summand
@@ -144,7 +150,7 @@ class Node(object):
 
         while parent_node is not None:  # Only the root has None as parent node
             parent_node.visit_count += 1  # Increment their visit counts
-            min_max_stats.update(parent_node.value())
+            min_max_stats.update(parent_node.get_value_mean())
 
             if parent_node.to_play == to_play:
                 parent_node.value_sum += value  # Add the own value to all the parent nodes values

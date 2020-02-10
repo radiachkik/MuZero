@@ -1,4 +1,4 @@
-class Player(object):
+class Player:
     """
     A class representing the available players in the current game
     """

@@ -1,6 +1,6 @@
 from muzero.mcts.node import Node
 from muzero.network.network import Network
-from muzero.muzero_config import MuZeroConfig
+from muzero.network.muzero_config import MuZeroConfig
 from muzero.environment.action import Action
 from muzero.environment.player import Player
 from muzero.mcts.min_max_stats import MinMaxStats
@@ -9,7 +9,7 @@ import numpy as np
 from typing import List
 
 
-class Tree(object):
+class Tree:
 
     def __init__(self, action_list, config: MuZeroConfig, network: Network, player_list: List[Player], discount):
         self.network = network
@@ -34,8 +34,9 @@ class Tree(object):
                          value=value,
                          policy_logits=policy_logits,
                          hidden_state=hidden_state,
-                         action=None,
+                         action=0,
                          to_play=Player(0))
+        self.root.expand(to_play=Player(0), legal_actions=self.legal_actions, min_max_stats=self.min_max_stats)
 
     """
     Start a Monte Carlo tree search based on the given observation and return the recommended action.
@@ -51,7 +52,7 @@ class Tree(object):
             return self.get_action_with_highest_visit_count()
         else:
             probability_distribution = self.get_probability_distribution()
-            return np.random.choice(a=len(probability_distribution), size=1, p=probability_distribution)
+            return Action(np.random.choice(a=len(probability_distribution), size=1, p=probability_distribution))
 
     """
     Rollout the search tree with the following schema (consists of a repeating 3-step procedure)
@@ -97,9 +98,12 @@ class Tree(object):
 
     def get_probability_distribution(self):
         policy_distribution = []
+        sum_child_visits = 0
 
         for possible_action in self.root.child_nodes:
-            action_probability = possible_action.visit_count / self.root.visit_count
-            policy_distribution.append(action_probability)
+            sum_child_visits += possible_action.visit_count
+            policy_distribution.append(possible_action.visit_count)
+
+        policy_distribution = np.array(policy_distribution) / sum_child_visits
 
         return policy_distribution
