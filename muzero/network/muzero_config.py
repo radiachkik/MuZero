@@ -56,7 +56,7 @@ class MuZeroConfig:
         self.checkpoint_interval = int(1e3)
         self.window_size = int(1e6)
         self.batch_size = batch_size
-        self.num_unroll_steps = 2
+        self.num_unroll_steps = 3
         self.td_steps = td_steps
 
         self.weight_decay = 1e-4
@@ -67,7 +67,7 @@ class MuZeroConfig:
         self.lr_decay_rate = 0.1
         self.lr_decay_steps = lr_decay_steps
 
-        self.buffer_save_game_interval = 1
+        self.buffer_save_game_interval = 5
         self.buffer_save_path = 'replay_buffer/serialized_replay_buffer'
 
     def new_game(self):
@@ -75,9 +75,6 @@ class MuZeroConfig:
 
 
 class MuZeroBoardConfig(MuZeroConfig):
-    """
-    TODO: Check the temperature function
-    """
     @staticmethod
     def visit_softmax_temperature(num_moves, training_steps):
         if num_moves < 30:
@@ -119,9 +116,6 @@ class MuZeroShogiConfig(MuZeroBoardConfig):
 
 
 class MuZeroAtariConfig(MuZeroConfig):
-    """
-    TODO: Ich verstehe diese definition nicht
-    """
     @staticmethod
     def visit_softmax_temperature(num_moves, training_steps):
         if training_steps < 500e3:
@@ -136,13 +130,13 @@ class MuZeroAtariConfig(MuZeroConfig):
             environment=environment,
             action_space_size=environment.action_space.n,
             number_players=1,
-            max_moves=3,  # Half an hour at action repeat 4.
-            discount=0.975,
+            max_moves=100,  # Half an hour at action repeat 4.
+            discount=0.99,
             dirichlet_alpha=0.25,
-            num_simulations=2,
-            batch_size=1,
-            td_steps=1,
-            lr_init=0.1,
+            num_simulations=8,
+            batch_size=16,
+            td_steps=5,
+            lr_init=0.01,
             lr_decay_steps=35000,
             visit_softmax_temperature_fn=self.visit_softmax_temperature
         )

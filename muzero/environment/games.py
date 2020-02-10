@@ -32,8 +32,6 @@ class Game:
 		self.observation_history = []
 		self.environment = environment
 		self.observation_history.append(self.environment.reset())
-		self.opponent_reward = 0
-		self.player_reward = 0
 		self.child_visits = []
 
 		self.max_moves = max_moves

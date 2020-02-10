@@ -17,12 +17,7 @@ class NetworkStorage:
             return self._networks[max(self._networks.keys())]
         else:
             # policy -> uniform, value -> 0, reward -> 0
-            return Network(num_action=self.config.action_space_size,
-                           game_mode='Atari',
-                           lr_init=self.config.lr_init,
-                           lr_decay_rate=self.config.lr_decay_rate,
-                           lr_decay_steps=self.config.lr_decay_steps,
-                           momentum=self.config.momentum)
+            return Network(num_action=self.config.action_space_size, game_mode='Atari')
 
     def save_network(self, step: int, network: Network):
         self._networks[step] = network

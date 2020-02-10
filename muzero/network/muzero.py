@@ -7,6 +7,7 @@ from muzero.environment.games import Game
 from muzero.environment.player import Player
 
 import tensorflow as tf
+from tensorflow.keras.optimizers import Optimizer, SGD
 import multiprocessing
 from datetime import datetime
 from multiprocessing import Pool, Process
@@ -52,9 +53,8 @@ class MuZero:
             network = self.network_storage.latest_network()
             game = self.play_game(network)
             self.replay_buffer.save_game(game)
-            if len(self.replay_buffer) > self.config.buffer_save_game_interval:
+            if len(self.replay_buffer) % self.config.buffer_save_game_interval == 0:
                 self.replay_buffer.save()
-
 
     def play_game(self, network: Network) -> Game:
         """
@@ -68,7 +68,6 @@ class MuZero:
                     network=network,
                     player_list=game.players,
                     discount=self.config.discount)
-
 
         while not game.terminal() and len(game.root_values) < self.config.max_moves:
             self.frame_count += 1
@@ -90,17 +89,14 @@ class MuZero:
         """
         print("Started training job but waits till buffer is filled enough")
         # Create new network (representation model, dynamics model, prediction model)
-        network = Network(num_action=self.config.action_space_size,
-                          game_mode='Atari',
-                          lr_init=self.config.lr_init,
-                          lr_decay_rate=self.config.lr_decay_rate,
-                          lr_decay_steps=self.config.lr_decay_steps,
-                          momentum=self.config.momentum)
+        network = Network(num_action=self.config.action_space_size, game_mode='Atari')
+        learning_rate = self.config.lr_init * self.config.lr_decay_rate ** (
+                network.training_steps() / self.config.lr_decay_steps)
+        opt = SGD(learning_rate=learning_rate, momentum=self.config.momentum)
 
-        while len(self.replay_buffer.buffer) < self.config.batch_size:
+        while len(self.replay_buffer.buffer) < self.config.buffer_save_game_interval:
             time.sleep(5)
-            if os.path.isfile('replay_buffer.npz'):
-                self.replay_buffer.load()
+
         print("Training started")
 
         for step in range(self.config.training_steps):
@@ -108,16 +104,19 @@ class MuZero:
             if step % self.config.checkpoint_interval == 0:
                 self.network_storage.save_network(step, network)
 
+            if len(self.replay_buffer) % self.config.buffer_save_game_interval == 0:
+                self.replay_buffer.load()
+
             # Sample a batch from the replay buffer
             batch = self.replay_buffer.sample_batch(self.config.num_unroll_steps, self.config.td_steps)
 
             # Calculate the loss that results from the batch and update the weights accordingly
-            self.update_weights(network, batch, self.config.weight_decay)
+            self.update_weights(opt, network, batch, self.config.weight_decay)
 
         # Finally save the trained network
         self.network_storage.save_network(self.config.training_steps, network)
 
-    def update_weights(self, network: Network, batch, weight_decay: float):
+    def update_weights(self, optimizer: Optimizer, network: Network, batch, weight_decay: float):
         """
         First predict the values for the given observations and actions
         Then calculate the loss between those predictions and results of the MCTS stored in the replay buffer
@@ -125,81 +124,66 @@ class MuZero:
         Finally updating all weights in the network (all 3 models) with the given optimizer.
         """
 
-        loss = tf.convert_to_tensor([0], dtype=float)
+        def scale_gradient(tensor, scale):
+            return tensor * scale + tf.stop_gradient(tensor) * (1. - scale)
 
-        for image, actions, targets in batch:
-            if not self.graph_traced:
-                tf.summary.trace_on(
-                    graph=True,
-                    profiler=False
-                )
-            # Prevents the computation of the image to be taken into account for computing gradients
-            image = tf.stop_gradient(image, 'get_image')
-            # Transform real observation to hidden state, then predict value, reward and policy distribution for it
+        def get_loss_callback():
+            loss = tf.convert_to_tensor([0], dtype=float)
 
-            value, reward, policy_logits, hidden_state = network.initial_inference(image)
+            for image, actions, targets in batch:
+                # Prevents the computation of the image to be taken into account for computing gradients
+                image = tf.stop_gradient(image, 'get_image')
+                # Transform real observation to hidden state, then predict value, reward and policy distribution for it
 
-            if not self.graph_traced:
-                self.writer = tf.summary.create_file_writer(self.logdir)
-                with self.writer.as_default():
-                    tf.summary.trace_export(
-                        name="initial_inference",
-                        step=0)
+                value, reward, policy_logits, hidden_state = network.initial_inference(image)
+                predictions = [(1.0, value, reward, policy_logits)]
 
-            predictions = [(1.0, value, reward, policy_logits)]
+                # Recurrent steps, from action and previous hidden state.
+                for action in actions:
+                    # Build the input for the recurrent inference and stop the gradients at the input
+                    action_tensor = tf.convert_to_tensor(action.action_id, dtype=float)
+                    action_layer = tf.ones(hidden_state.shape) * action_tensor
+                    hidden_state_with_action = tf.concat([hidden_state, action_layer], axis=3)
+                    hidden_state_with_action = tf.stop_gradient(hidden_state_with_action, 'get_hidden_state_with_action')
 
-            # Recurrent steps, from action and previous hidden state.
-            if not self.graph_traced:
-                tf.summary.trace_on(
-                    graph=True,
-                    profiler=False
-                )
-            for action in actions:
-                # Build the input for the recurrent inference and stop the gradients at the input
-                action_tensor = tf.convert_to_tensor(action.action_id, dtype=float)
-                action_layer = tf.ones(hidden_state.shape) * action_tensor
-                hidden_state_with_action = tf.concat([hidden_state, action_layer], axis=3)
-                hidden_state_with_action = tf.stop_gradient(hidden_state_with_action, 'get_hidden_state_with_action')
+                    value, reward, policy_logits, hidden_state = network.recurrent_inference(hidden_state_with_action)
 
-                value, reward, policy_logits, hidden_state = network.recurrent_inference(hidden_state_with_action)
-                hidden_state = scale_gradient(hidden_state, 0.5)
-                predictions.append((1.0 / len(actions), value, reward, policy_logits))
+                    hidden_state = scale_gradient(hidden_state, 0.5)
+                    predictions.append((1.0 / len(actions), value, reward, policy_logits))
 
-            # Calculate the loss between the predictions and the target
-            for prediction, target in zip(predictions, targets):
-                gradient_scale, value, reward, policy_logits = prediction
-                target_value, target_reward, target_policy = target
+                # Calculate the loss between the predictions and the target
+                for prediction, target in zip(predictions, targets):
+                    gradient_scale, value, reward, policy_logits = prediction
+                    target_value, target_reward, target_policy = target
 
-                assert value.shape == target_value.shape
-                assert reward.shape == target_reward.shape
-                assert policy_logits.shape == target_policy.shape
+                    assert value.shape == target_value.shape
+                    assert reward.shape == target_reward.shape
+                    assert policy_logits.shape == target_policy.shape
 
-                l = (
-                        self.scalar_loss(value, target_value) +
-                        self.scalar_loss(reward, target_reward) +
-                        self.scalar_loss(policy_logits, target_policy)
-                )
+                    l = (
+                            self.scalar_loss(value, target_value) +
+                            self.scalar_loss(reward, target_reward) +
+                            self.scalar_loss(policy_logits, target_policy)
+                    )
 
-                loss += scale_gradient(l, gradient_scale)
+                    loss += scale_gradient(l, gradient_scale)
 
-            if not self.graph_traced:
-                with self.writer.as_default():
-                    tf.summary.trace_export(
-                        name="recurrent_inference",
-                        step=0)
-                self.graph_traced = True
+            print('Loss before l2: ', loss)
 
-        # Add L2-Regularization to the overall loss
-        for weights in network.get_weights():
-            loss += weight_decay * tf.nn.l2_loss(weights)
+            """
+            FIXME: L2 loss is way to high (sometimes even inf) 
+            # Add L2-Regularization to the overall loss
+            for weights in network.get_weights_callback()():
+                loss += weight_decay * tf.nn.l2_loss(weights)
+            """
 
-        # Optimize the current weights
-        print('Loss: ', loss)
+            # Optimize the current weights
+            print('Loss after l2: ', loss)
 
-        def get_loss():
-            return tf.convert_to_tensor(loss, dtype=float)
+            return loss
 
-        network.minimize_loss(get_loss)
+        optimizer.minimize(get_loss_callback, network.get_weights_callback())
+        network.train_step += 1
 
     def scalar_loss(self, prediction, target) -> float:
         """
@@ -216,10 +200,3 @@ class MuZero:
             return tf.cast(squared_error, dtype=float)
         else:
             raise Exception('MuZero', 'Please use the AtariConfig or the BoardConfig for calculating appropriate loss')
-
-    def evaluate(self):
-        pass
-
-
-def scale_gradient(tensor, scale):
-    return tensor * scale + tf.stop_gradient(tensor) * (1 - scale)
