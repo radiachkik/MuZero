@@ -130,7 +130,7 @@ class MuZeroAtariConfig(MuZeroConfig):
             environment=environment,
             action_space_size=environment.action_space.n,
             number_players=1,
-            max_moves=100,  # Half an hour at action repeat 4.
+            max_moves=25,  # Half an hour at action repeat 4.
             discount=0.99,
             dirichlet_alpha=0.25,
             num_simulations=8,
