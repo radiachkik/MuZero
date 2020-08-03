@@ -32,7 +32,6 @@ class MuZero:
         self.graph_traced = False
         self.writer = None
 
-
     def start_training(self):
         """
         Use the most recent version of the network to generate the trainings data and save it into the replay buffer

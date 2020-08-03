@@ -6,13 +6,11 @@ import collections
 
 KnownBounds = collections.namedtuple('KnownBounds', ['min', 'max'])
 
-"""
-Containing all values relevant for setting up the whole structure of MuZero and the Monte Carlo Tree Search
-"""
-
 
 class MuZeroConfig:
-
+    """
+    Containing all values relevant for setting up the whole structure of MuZero and the Monte Carlo Tree Search
+    """
     def __init__(self,
                  environment: core.Env,
                  action_space_size: int,
@@ -27,7 +25,7 @@ class MuZeroConfig:
                  lr_decay_steps: float,
                  visit_softmax_temperature_fn,
                  known_bounds: Optional[KnownBounds] = None):
-        ### Self-Play
+        # Self-Play
         self.environment = environment
         self.action_space_size = action_space_size
         self.number_players = number_players
@@ -51,7 +49,7 @@ class MuZeroConfig:
         # AlphaZero in board games.
         self.known_bounds = known_bounds
 
-        ### Training
+        # Training
         self.training_steps = int(1000e3)
         self.checkpoint_interval = int(1e3)
         self.window_size = int(1e6)
