@@ -5,7 +5,7 @@ setup(
     name='MuZero',
     version='0.2',
     packages=find_packages(),
-    install_requires=['gym', 'tensorflow==2.0.0beta1', 'numpy'],
+    install_requires=['gym', 'tensorflow==2.5.1', 'numpy'],
     license='MIT License',
     author='Radi Achkik',
     author_email='radi.achkik@gmail.com',
